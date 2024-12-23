@@ -2,8 +2,7 @@
 
 package freechips.rocketchip.tilelink
 
-import chisel3._
-import chisel3.util._
+import Chisel._
 import org.chipsalliance.cde.config.Parameters
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.util.property
@@ -46,15 +45,15 @@ class TLFIFOFixer(policy: TLFIFOFixer.Policy = TLFIFOFixer.all)(implicit p: Para
       val (fixMap, splatMap) = fifoMap(edgeOut.manager.managers)
 
       // Do we need to serialize the request to this manager?
-      val a_notFIFO = edgeIn.manager.fastProperty(in.a.bits.address, _.fifoId != Some(0), (b:Boolean) => b.B)
+      val a_notFIFO = edgeIn.manager.fastProperty(in.a.bits.address, _.fifoId != Some(0), (b:Boolean) => Bool(b))
       // Compact the IDs of the cases we serialize
       val compacted = ((fixMap zip splatMap) zip edgeOut.manager.managers) flatMap {
         case ((f, s), m) => if (f == Some(0)) Some(m.v1copy(fifoId = s)) else None
       }
       val sinks = if (compacted.exists(_.supportsAcquireB)) edgeOut.manager.endSinkId else 0
-      val a_id = if (compacted.isEmpty) 0.U else
+      val a_id = if (compacted.isEmpty) UInt(0) else
         edgeOut.manager.v1copy(managers = compacted, endSinkId = sinks).findFifoIdFast(in.a.bits.address)
-      val a_noDomain = a_id === 0.U
+      val a_noDomain = a_id === UInt(0)
 
       if (false) {
         println(s"FIFOFixer for: ${edgeIn.client.clients.map(_.name).mkString(", ")}")
@@ -70,19 +69,19 @@ class TLFIFOFixer(policy: TLFIFOFixer.Policy = TLFIFOFixer.all)(implicit p: Para
 
       // Keep one bit for each source recording if there is an outstanding request that must be made FIFO
       // Sources unused in the stall signal calculation should be pruned by DCE
-      val flight = RegInit(VecInit(Seq.fill(edgeIn.client.endSourceId) { false.B }))
-      when (a_first && in.a.fire) { flight(in.a.bits.source) := !a_notFIFO }
-      when (d_first && in.d.fire) { flight(in.d.bits.source) := false.B }
+      val flight = RegInit(Vec.fill(edgeIn.client.endSourceId) { Bool(false) })
+      when (a_first && in.a.fire()) { flight(in.a.bits.source) := !a_notFIFO }
+      when (d_first && in.d.fire()) { flight(in.d.bits.source) := Bool(false) }
 
       val stalls = edgeIn.client.clients.filter(c => c.requestFifo && c.sourceId.size > 1).map { c =>
         val a_sel = c.sourceId.contains(in.a.bits.source)
-        val id    = RegEnable(a_id, in.a.fire && a_sel && !a_notFIFO)
+        val id    = RegEnable(a_id, in.a.fire() && a_sel && !a_notFIFO)
         val track = flight.slice(c.sourceId.start, c.sourceId.end)
 
         a_sel && a_first && track.reduce(_ || _) && (a_noDomain || id =/= a_id)
       }
 
-      val stall = stalls.foldLeft(false.B)(_||_)
+      val stall = stalls.foldLeft(Bool(false))(_||_)
 
       out.a <> in.a
       in.d <> out.d
@@ -94,26 +93,26 @@ class TLFIFOFixer(policy: TLFIFOFixer.Policy = TLFIFOFixer.all)(implicit p: Para
         out.c <> in .c
         out.e <> in .e
       } else {
-        in.b.valid := false.B
-        in.c.ready := true.B
-        in.e.ready := true.B
-        out.b.ready := true.B
-        out.c.valid := false.B
-        out.e.valid := false.B
+        in.b.valid := Bool(false)
+        in.c.ready := Bool(true)
+        in.e.ready := Bool(true)
+        out.b.ready := Bool(true)
+        out.c.valid := Bool(false)
+        out.e.valid := Bool(false)
       }
 
 //Functional cover properties
      
       property.cover(in.a.valid && stall, "COVER FIFOFIXER STALL", "Cover: Stall occured for a valid transaction")
 
-      val SourceIdFIFOed = RegInit(0.U(edgeIn.client.endSourceId.W))
-      val SourceIdSet = WireDefault(0.U(edgeIn.client.endSourceId.W))
-      val SourceIdClear = WireDefault(0.U(edgeIn.client.endSourceId.W))
+      val SourceIdFIFOed = RegInit(UInt(0, width = edgeIn.client.endSourceId))
+      val SourceIdSet = Wire(init = UInt(0, width = edgeIn.client.endSourceId))
+      val SourceIdClear = Wire(init = UInt(0, width = edgeIn.client.endSourceId))
 
-      when (a_first && in.a.fire && !a_notFIFO)  {
+      when (a_first && in.a.fire() && !a_notFIFO)  {
         SourceIdSet := UIntToOH(in.a.bits.source)
       }
-      when (d_first && in.d.fire)  {
+      when (d_first && in.d.fire())  {
         SourceIdClear := UIntToOH(in.d.bits.source)
       }
 

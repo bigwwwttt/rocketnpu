@@ -50,13 +50,13 @@ abstract class TilePRCIDomain[T <: BaseTile](
   private val traceSignalName = "trace"
   private val traceCoreSignalName = "tracecore"
   /** Node to broadcast legacy "raw" instruction trace while surpressing it during (async) reset. */
-  val traceNode: BundleBridgeIdentityNode[TraceBundle] = BundleBridgeNameNode(traceSignalName)
+  val traceNode: BundleBridgeIdentityNode[Vec[TracedInstruction]] = BundleBridgeNameNode(traceSignalName)
   /** Node to broadcast standardized instruction trace while surpressing it during (async) reset. */
   val traceCoreNode: BundleBridgeIdentityNode[TraceCoreInterface] = BundleBridgeNameNode(traceCoreSignalName)
 
   /** Function to handle all trace crossings when tile is instantiated inside domains */
   def crossTracesOut(): Unit = this {
-    val traceNexusNode = BundleBridgeBlockDuringReset[TraceBundle](
+    val traceNexusNode = BundleBridgeBlockDuringReset[Vec[TracedInstruction]](
       resetCrossingType = crossingParams.resetCrossingType,
       name = Some(traceSignalName))
     traceNode :*= traceNexusNode := tile.traceNode
@@ -93,7 +93,7 @@ abstract class TilePRCIDomain[T <: BaseTile](
   def crossSlavePort(crossingType: ClockCrossingType): TLInwardNode = { DisableMonitors { implicit p => FlipRendering { implicit p =>
     val tlSlaveResetXing = this {
       tile_reset_domain.crossTLIn(tile.slaveNode) :*=
-        tile { tile.makeSlaveBoundaryBuffers(crossingType) }
+        tile.makeSlaveBoundaryBuffers(crossingType)
     }
     val tlSlaveClockXing = this.crossIn(tlSlaveResetXing)
     tlSlaveClockXing(crossingType)
@@ -104,7 +104,7 @@ abstract class TilePRCIDomain[T <: BaseTile](
     */
   def crossMasterPort(crossingType: ClockCrossingType): TLOutwardNode = {
     val tlMasterResetXing = this { DisableMonitors { implicit p =>
-      tile { tile.makeMasterBoundaryBuffers(crossingType) } :=*
+      tile.makeMasterBoundaryBuffers(crossingType) :=*
         tile_reset_domain.crossTLOut(tile.masterNode)
     } }
     val tlMasterClockXing = this.crossOut(tlMasterResetXing)

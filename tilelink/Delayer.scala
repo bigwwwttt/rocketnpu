@@ -2,8 +2,7 @@
 
 package freechips.rocketchip.tilelink
 
-import chisel3._
-import chisel3.util._
+import Chisel._
 import org.chipsalliance.cde.config.Parameters
 import freechips.rocketchip.diplomacy._
 
@@ -16,15 +15,15 @@ class TLDelayer(q: Double)(implicit p: Parameters) extends LazyModule
   lazy val module = new Impl
   class Impl extends LazyModuleImp(this) {
     def feed[T <: Data](sink: DecoupledIO[T], source: DecoupledIO[T], noise: T): Unit = {
-      val allow = ((q * 65535.0).toInt).U <= LFSRNoiseMaker(16, source.valid)
+      val allow = UInt((q * 65535.0).toInt) <= LFSRNoiseMaker(16, source.valid)
       sink.valid := source.valid && allow
       source.ready := sink.ready && allow
       sink.bits := source.bits
       when (!sink.valid) { sink.bits := noise }
     }
 
-    (node.in zip node.out) foreach { case ((in, edgeIn), (out, edgeOut)) =>
-      val anoise = Wire(new TLBundleA(edgeIn.bundle))
+    (node.in zip node.out) foreach { case ((in, _), (out, _)) =>
+      val anoise = Wire(in.a.bits)
       anoise.opcode  := LFSRNoiseMaker(3)
       anoise.param   := LFSRNoiseMaker(3)
       anoise.size    := LFSRNoiseMaker(anoise.params.sizeBits)
@@ -32,9 +31,8 @@ class TLDelayer(q: Double)(implicit p: Parameters) extends LazyModule
       anoise.address := LFSRNoiseMaker(anoise.params.addressBits)
       anoise.mask    := LFSRNoiseMaker(anoise.params.dataBits/8)
       anoise.data    := LFSRNoiseMaker(anoise.params.dataBits)
-      anoise.corrupt := LFSRNoiseMaker(1)
 
-      val bnoise = Wire(new TLBundleB(edgeOut.bundle))
+      val bnoise = Wire(out.b.bits)
       bnoise.opcode  := LFSRNoiseMaker(3)
       bnoise.param   := LFSRNoiseMaker(3)
       bnoise.size    := LFSRNoiseMaker(bnoise.params.sizeBits)
@@ -42,9 +40,8 @@ class TLDelayer(q: Double)(implicit p: Parameters) extends LazyModule
       bnoise.address := LFSRNoiseMaker(bnoise.params.addressBits)
       bnoise.mask    := LFSRNoiseMaker(bnoise.params.dataBits/8)
       bnoise.data    := LFSRNoiseMaker(bnoise.params.dataBits)
-      bnoise.corrupt := LFSRNoiseMaker(1)
 
-      val cnoise = Wire(new TLBundleC(edgeIn.bundle))
+      val cnoise = Wire(in.c.bits)
       cnoise.opcode  := LFSRNoiseMaker(3)
       cnoise.param   := LFSRNoiseMaker(3)
       cnoise.size    := LFSRNoiseMaker(cnoise.params.sizeBits)
@@ -53,7 +50,7 @@ class TLDelayer(q: Double)(implicit p: Parameters) extends LazyModule
       cnoise.data    := LFSRNoiseMaker(cnoise.params.dataBits)
       cnoise.corrupt := LFSRNoiseMaker(1)(0)
 
-      val dnoise = Wire(new TLBundleD(edgeOut.bundle))
+      val dnoise = Wire(out.d.bits)
       dnoise.opcode  := LFSRNoiseMaker(3)
       dnoise.param   := LFSRNoiseMaker(3)
       dnoise.size    := LFSRNoiseMaker(dnoise.params.sizeBits)
@@ -63,7 +60,7 @@ class TLDelayer(q: Double)(implicit p: Parameters) extends LazyModule
       dnoise.data    := LFSRNoiseMaker(dnoise.params.dataBits)
       dnoise.corrupt := LFSRNoiseMaker(1)(0)
 
-      val enoise = Wire(new TLBundleE(edgeIn.bundle))
+      val enoise = Wire(in.e.bits)
       enoise.sink := LFSRNoiseMaker(enoise.params.sinkBits)
 
       feed(out.a, in.a, anoise)

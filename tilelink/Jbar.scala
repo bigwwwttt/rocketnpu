@@ -2,7 +2,7 @@
 
 package freechips.rocketchip.tilelink
 
-import chisel3._
+import Chisel._
 import org.chipsalliance.cde.config._
 import freechips.rocketchip.diplomacy._
 
@@ -76,5 +76,4 @@ class TLJbarTestImp(nClients: Int, nManagers: Int, txns: Int)(implicit p: Parame
 class TLJbarTest(nClients: Int, nManagers: Int, txns: Int = 5000, timeout: Int = 500000)(implicit p: Parameters) extends UnitTest(timeout) {
   val dut = Module(LazyModule(new TLJbarTestImp(nClients, nManagers, txns)).module)
   io.finished := dut.io.finished
-  dut.io.start := io.start
 }

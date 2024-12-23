@@ -2,8 +2,7 @@
 
 package freechips.rocketchip.tilelink
 
-import chisel3._
-import chisel3.util._
+import Chisel._
 import chisel3.RawModule
 import org.chipsalliance.cde.config.Parameters
 import freechips.rocketchip.diplomacy._
@@ -13,8 +12,8 @@ import freechips.rocketchip.util._
 import scala.math.min
 
 class TLRegisterRouterExtraBundle(val sourceBits: Int, val sizeBits: Int) extends Bundle {
-  val source = UInt((sourceBits max 1).W)
-  val size   = UInt((sizeBits max 1).W)
+  val source = UInt(width = sourceBits max 1)
+  val size   = UInt(width = sizeBits max 1)
 }
 
 case object TLRegisterRouterExtra extends ControlKey[TLRegisterRouterExtraBundle]("tlrr_extra")
@@ -98,9 +97,9 @@ case class TLRegisterNode(
     d.bits.opcode := Mux(out.bits.read, TLMessages.AccessAckData, TLMessages.AccessAck)
 
     // Tie off unused channels
-    bundleIn.b.valid := false.B
-    bundleIn.c.ready := true.B
-    bundleIn.e.ready := true.B
+    bundleIn.b.valid := Bool(false)
+    bundleIn.c.ready := Bool(true)
+    bundleIn.e.ready := Bool(true)
 
     genRegDescsJson(mapping:_*)
   }

@@ -4,8 +4,6 @@ package freechips.rocketchip.util
 
 import chisel3._
 import chisel3.util.DecoupledIO
-import freechips.rocketchip.tile.{TraceBundle}
-import freechips.rocketchip.rocket.{TracedInstruction}
 
 /** A trait supplying a function allowing the contents of data
   * to be supressed for a time period, i.e. be blocked.
@@ -42,20 +40,6 @@ object Blockable {
     }
   }
 
-  implicit def BlockableCredited[T <: Data]: Blockable[CreditedIO[T]] = new Blockable[CreditedIO[T]] {
-    def blockWhile(enable_blocking: Bool, data: CreditedIO[T]): CreditedIO[T] = {
-      val res = Wire(chiselTypeOf(data))
-      res.debit   := data.debit
-      data.credit := res.credit
-      res.bits    := data.bits
-      when (enable_blocking) {
-        res.debit := false.B
-        data.credit := false.B
-      }
-      res
-    }
-  }
-
   implicit def BlockableVec[T <: Data : Blockable]: Blockable[Vec[T]] = new Blockable[Vec[T]] {
     def blockWhile(enable_blocking: Bool, data: Vec[T]): Vec[T] = {
       VecInit(data.map(x => implicitly[Blockable[T]].blockWhile(enable_blocking, x)))
@@ -72,14 +56,6 @@ object Blockable {
           g.itype := TraceItype.ITNothing
         }
       }
-      blocked
-    }
-  }
-
-  implicit object BlockableTraceBundle extends Blockable[TraceBundle] {
-    def blockWhile(enable_blocking: Bool, data: TraceBundle) = {
-      val blocked = WireInit(data)
-      blocked.insns := implicitly[Blockable[Vec[TracedInstruction]]].blockWhile(enable_blocking, data.insns)
       blocked
     }
   }
